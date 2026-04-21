@@ -1,0 +1,293 @@
+// ============================================================
+//  Akagera Aviation EFB — Prisma Schema
+//  Multi-tenant: every row tied to a Tenant via tenantId.
+//  PostGIS extension used for route/waypoint geometry.
+// ============================================================
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [postgis]
+}
+
+// ── Tenant (flight school / charter company / corporate fleet) ────────────
+model Tenant {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  logoUrl     String?
+  primaryColor String  @default("#1e40af")
+  timezone    String   @default("UTC")
+  country     String   @default("RW")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users       User[]
+  aircraft    Aircraft[]
+  documents   Document[]
+  flights     Flight[]
+  checklists  Checklist[]
+  wbTemplates WBTemplate[]
+  wbRecords   WBRecord[]
+  routes      Route[]
+}
+
+// ── User ──────────────────────────────────────────────────────────────────
+model User {
+  id              String    @id @default(cuid())
+  clerkId         String    @unique
+  email           String    @unique
+  name            String
+  role            UserRole  @default(PILOT)
+  tenantId        String
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Pilot credentials & currency
+  licenseNumber   String?
+  medicalExpiry   DateTime?
+  licenseExpiry   DateTime?
+  instructorExpiry DateTime?
+  recurrencyExpiry DateTime?
+  proficiencyExpiry DateTime?
+  crmExpiry       DateTime?
+  dgsExpiry       DateTime?
+
+  picFlights      Flight[]  @relation("PicFlights")
+  sicFlights      Flight[]  @relation("SicFlights")
+  loggedFlights   Flight[]  @relation("LoggedFlights")
+
+  @@index([tenantId])
+  @@index([clerkId])
+}
+
+enum UserRole {
+  OWNER
+  ADMIN
+  DISPATCHER
+  PILOT
+  STUDENT
+  MAINTENANCE
+}
+
+// ── Aircraft ──────────────────────────────────────────────────────────────
+model Aircraft {
+  id               String           @id @default(cuid())
+  tenantId         String
+  tenant           Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  registration     String
+  type             String
+  manufacturer     String
+  serialNumber     String?
+  manufacturedDate DateTime?
+  entryDate        DateTime?
+  emptyWeight      Float            @default(0)      // lbs
+  maxGrossWeight   Float            @default(0)      // lbs
+  engineTimeHours  Float            @default(0)
+  airframeHours    Float            @default(0)
+  multiEngine      Boolean          @default(false)
+  turbineEngine    Boolean          @default(false)
+  category         AircraftCategory @default(HELICOPTER)
+  status           AircraftStatus   @default(ACTIVE)
+  photoUrl         String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  flights     Flight[]
+  wbTemplates WBTemplate[]
+  wbRecords   WBRecord[]
+  documents   Document[]
+
+  @@unique([tenantId, registration])
+  @@index([tenantId])
+}
+
+enum AircraftCategory {
+  FIXED_WING
+  HELICOPTER
+  GYROPLANE
+  UAV
+}
+
+enum AircraftStatus {
+  ACTIVE
+  MAINTENANCE
+  AOG
+  RETIRED
+}
+
+// ── Flight Log ────────────────────────────────────────────────────────────
+model Flight {
+  id              String        @id @default(cuid())
+  tenantId        String
+  tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  aircraftId      String
+  aircraft        Aircraft      @relation(fields: [aircraftId], references: [id])
+  flightDate      DateTime
+  departureIcao   String
+  arrivalIcao     String
+  offBlockTime    DateTime?
+  onBlockTime     DateTime?
+  blockMinutes    Int?
+  airborneMinutes Int?
+  engineHobbs     Float?
+  landingCount    Int           @default(1)
+  fuelMain        Float?
+  fuelAux         Float?
+  grossWeight     Float?
+  exercise        String?
+  remarks         String?
+  status          FlightStatus  @default(PENDING)
+  picId           String?
+  pic             User?         @relation("PicFlights", fields: [picId], references: [id])
+  sicId           String?
+  sic             User?         @relation("SicFlights", fields: [sicId], references: [id])
+  loggedById      String?
+  loggedBy        User?         @relation("LoggedFlights", fields: [loggedById], references: [id])
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  wbRecord        WBRecord?
+
+  @@index([tenantId])
+  @@index([aircraftId])
+  @@index([flightDate])
+}
+
+enum FlightStatus {
+  PENDING
+  AIRBORNE
+  COMPLETED
+  CANCELLED
+}
+
+// ── Weight & Balance Template ─────────────────────────────────────────────
+// Stores the aircraft-specific CG envelope and station arms.
+model WBTemplate {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  aircraftId  String
+  aircraft    Aircraft @relation(fields: [aircraftId], references: [id])
+  name        String   @default("Standard")
+
+  // CG envelope vertices as [{weight, moment}] JSON array
+  envelopePoints Json
+
+  // Loading stations: [{id, name, arm (inches), defaultWeight, maxWeight}]
+  stations    Json
+
+  emptyWeight Float
+  emptyCg     Float    // inches
+  emptyMoment Float    // in-lbs / 1000
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  records     WBRecord[]
+
+  @@index([tenantId])
+  @@index([aircraftId])
+}
+
+// ── Weight & Balance Record (per flight) ──────────────────────────────────
+model WBRecord {
+  id          String     @id @default(cuid())
+  tenantId    String
+  tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  aircraftId  String
+  aircraft    Aircraft   @relation(fields: [aircraftId], references: [id])
+  templateId  String
+  template    WBTemplate @relation(fields: [templateId], references: [id])
+  flightId    String?    @unique
+  flight      Flight?    @relation(fields: [flightId], references: [id])
+
+  // Actual loading: [{stationId, weight}]
+  loadItems   Json
+
+  totalWeight Float
+  totalMoment Float
+  cgInches    Float
+  withinLimits Boolean
+
+  createdAt   DateTime   @default(now())
+
+  @@index([tenantId])
+}
+
+// ── Document ──────────────────────────────────────────────────────────────
+model Document {
+  id          String       @id @default(cuid())
+  tenantId    String
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  aircraftId  String?
+  aircraft    Aircraft?    @relation(fields: [aircraftId], references: [id])
+  title       String
+  category    DocCategory  @default(MANUAL)
+  version     String       @default("1.0")
+  s3Key       String
+  sizeBytes   Int
+  mimeType    String
+  checksum    String?
+  validFrom   DateTime?
+  validTo     DateTime?
+  uploadedById String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([tenantId])
+  @@index([aircraftId])
+}
+
+enum DocCategory {
+  MANUAL
+  CHECKLIST
+  AFM
+  MEL
+  CHARTS
+  REGULATIONS
+  TRAINING
+  MAINTENANCE
+  OTHER
+}
+
+// ── Checklist ─────────────────────────────────────────────────────────────
+model Checklist {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  aircraftType String?
+  title       String
+  phase       String   // preflight, startup, taxi, takeoff, cruise, landing, shutdown
+  // [{id, text, response, critical}]
+  items       Json
+  version     String   @default("1.0")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId])
+}
+
+// ── Route (flight plan) ───────────────────────────────────────────────────
+model Route {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  // GeoJSON LineString stored as Json
+  geoJson     Json
+  // [{icao, name, lat, lon, altitude}]
+  waypoints   Json
+  distanceNm  Float?
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId])
+}

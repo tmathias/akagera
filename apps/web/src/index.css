@@ -1,0 +1,98 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── CSS custom properties (shadcn/ui dark theme) ─────────────────────── */
+@layer base {
+  :root {
+    --background: 222 47% 5%;
+    --foreground: 213 31% 91%;
+    --card: 222 47% 7%;
+    --card-foreground: 213 31% 91%;
+    --popover: 222 47% 7%;
+    --popover-foreground: 215 20% 65%;
+    --primary: 210 100% 56%;
+    --primary-foreground: 222 47% 5%;
+    --secondary: 222 47% 11%;
+    --secondary-foreground: 213 31% 91%;
+    --muted: 223 47% 11%;
+    --muted-foreground: 215 20% 55%;
+    --accent: 216 34% 17%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 63% 55%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 216 34% 17%;
+    --input: 216 34% 17%;
+    --ring: 216 34% 17%;
+    --radius: 0.5rem;
+  }
+}
+
+/* ── Global resets ────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* ── Cesium canvas ────────────────────────────────────────────────────── */
+.cesium-widget canvas {
+  outline: none;
+}
+
+/* Remove Cesium credits bar to reclaim space (keep logo per license terms) */
+.cesium-viewer-bottom {
+  display: none !important;
+}
+.cesium-credit-logoContainer {
+  display: none !important;
+}
+
+/* ── Scrollbars (thin, dark) ─────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #484f58; }
+
+/* ── EFB panel ───────────────────────────────────────────────────────── */
+.efb-panel {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* ── Traffic aircraft icon animation ─────────────────────────────────── */
+@keyframes traffic-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+.traffic-stale { animation: traffic-pulse 2s ease-in-out infinite; }
+
+/* ── PDF viewer ──────────────────────────────────────────────────────── */
+.pdf-canvas-container canvas {
+  max-width: 100%;
+  height: auto !important;
+}
+
+/* ── Touch targets for tablet use ────────────────────────────────────── */
+@media (pointer: coarse) {
+  button, [role="button"] { min-height: 44px; min-width: 44px; }
+}
+
+/* ── EFB form inputs ─────────────────────────────────────────────────── */
+@layer components {
+  .efb-input {
+    @apply w-full bg-panel border border-panel-border rounded px-2 py-1.5 text-xs text-white
+           focus:outline-none focus:border-avionics-blue transition-colors placeholder:text-muted-foreground;
+  }
+}
+
+/* ── Hide scrollbar (preserve scroll) ───────────────────────────────── */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar { display: none; }

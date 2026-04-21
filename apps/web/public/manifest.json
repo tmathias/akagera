@@ -1,0 +1,45 @@
+{
+  "name": "Akagera Aviation EFB",
+  "short_name": "AkageraEFB",
+  "description": "Professional Electronic Flight Bag — moving map, weather overlays, ADS-B traffic, W&B calculator, document management",
+  "start_url": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "orientation": "any",
+  "theme_color": "#0f172a",
+  "background_color": "#0d1117",
+  "categories": ["navigation", "utilities"],
+  "screenshots": [],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Moving Map",
+      "url": "/?tab=map",
+      "description": "Open moving map"
+    },
+    {
+      "name": "Weight & Balance",
+      "url": "/?tab=wb",
+      "description": "Open W&B calculator"
+    },
+    {
+      "name": "Documents",
+      "url": "/?tab=docs",
+      "description": "Open document library"
+    }
+  ],
+  "prefer_related_applications": false
+}
